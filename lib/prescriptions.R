@@ -7,6 +7,9 @@ require(reshape)
 
 setwd("/home/david/src/ohc/pa-research/data")
 
+#' Calculate Spend totals by GP Practice
+#'
+#' @return data.frame
 spend_totals <- function(){
 
   ## load aggregate.data
@@ -51,6 +54,22 @@ spend_totals <- function(){
 
 }
 
+#' Refine the set of prescriptions by interesting dimensions
+#'
+#' @param scrips Data frame of prescription data
+#' @param practices Vector of practice codes
+#'
+#' @return data.frame
+scripset <- function(scrips, practices=NULL){
+  if(!is.null(practices)){
+    myscrips <- subset(scrips, Practice.code %in% practices)
+  }
+  return(myscrips)
+}
+
+#' Calculate Statin details by Practice.
+#'
+#' @return data.frame
 practice_mapping <- function(statins, months){
   statins$item.bad <- FALSE
   statins[statins$Drug %in% c("Atorvastatin","Rosuvastatin Calcium"),]$item.bad<-TRUE
@@ -60,8 +79,9 @@ practice_mapping <- function(statins, months){
                                          statins$Practice.code),FUN=sum)
   practice.agg <- cast(practice.agg,Group.2~Group.1)
   names(practice.agg) <- c("Practice.code","ok.drugs","problem.drugs")
-  practice.agg$practice.problem <- practice.agg$problem.drugs/(
-                                                               practice.agg$problem.drugs+practice.agg$ok.drugs)
+  practice.agg$practice.problem <- practice.agg$problem.drugs/
+    (practice.agg$problem.drugs+practice.agg$ok.drugs)
+
   practice.agg$total.items.month <- (practice.agg$problem.drugs+practice.agg$ok.drugs)/months
   practice.agg <- practice.agg[,c("Practice.code", "total.items.month", "practice.problem")]
   practice.agg$total.items.month <- round(practice.agg$total.items.month, 0)
@@ -72,9 +92,5 @@ practice_mapping <- function(statins, months){
   practice.located <- merge(practice.agg, practice.details, all.x=TRUE)
 
   return(practice.located)
-
-}
-
-spend_two_way <- function(totals){
 
 }

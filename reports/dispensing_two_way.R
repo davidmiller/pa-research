@@ -3,8 +3,10 @@
 ## for further Statin analysis
 ##
 
-source("prescriptions.R")
-source("dispenseries.R")
+source("../lib/prescriptions.R")
+source("../lib/dispenseries.R")
+
+setwd("/home/david/src/ohc/pa-research/data")
 
 stripchar <- function(x) str_trim(as.character(x))
 

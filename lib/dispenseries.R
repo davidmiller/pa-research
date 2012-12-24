@@ -6,6 +6,9 @@ require(stringr)
 
 setwd("/home/david/src/ohc/pa-research/data")
 
+#' Load Dispensing practice Data
+#'
+#' @return data.frame
 get_dispenseries <- function(){
 
   dispensing.practices <- read.csv("dispensing_practices.csv")
@@ -29,6 +32,11 @@ get_dispenseries <- function(){
 
 }
 
+#' Extract Postcode
+#'
+#' Utility function for extracting usable postcodes
+#'
+#' @return character
 get_pc <- function(address){
 
   return(
