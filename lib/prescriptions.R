@@ -5,30 +5,29 @@
 ##
 require(reshape)
 
-setwd("/home/david/src/ohc/pa-research/data")
+setwd("/home/david/src/ohc/data")
 
 #' Calculate Spend totals by GP Practice
 #'
+#' @param [problemfile], "problem_drugs.csv"
 #' @return data.frame
-spend_totals <- function(){
+spend_totals <- function(problemfile="problem_drugs.csv"){
 
   ## load aggregate.data
   file.list<-read.csv("file_list.txt")$x
   spend.practice<-read.csv("spend_practice.csv")
-  problem.drugs<-read.csv("problem_drugs.csv")
-  problem.spend<-read.csv("problem_spend.csv")
-  total.problem.spend<-read.csv("total_problem_spend.csv")
-  simva.price<-read.csv("simva_price.csv")
-  simva.price<-simva.price[1,1]
+  problem.drugs<-read.csv(problemfile)
 
+  ## Merge spend with problem data
   spend.practice$item.pct<-spend.practice$items.thisdrug/spend.practice$items.alldrugs
   total.problem.spend<-merge(total.problem.spend,problem.drugs,all.x=TRUE)
   total.problem.spend$amount.wasted<-total.problem.spend$Spend*total.problem.spend$saving
   wasted.totals<-aggregate(total.problem.spend[,c("Spend","Items","amount.wasted")],
-                           by=list("Drug"=total.problem.spend$Drug,"category"=total.problem.spend$category),
+                           by=list("Drug"=total.problem.spend$Drug,
+                                   "category"=total.problem.spend$category),
                            FUN=sum)
 
-## Calculate waste per practice
+  ## Calculate waste per practice
   spend.practice<-merge(spend.practice,problem.drugs,all.x=TRUE)
   spend.practice$amount.wasted<-spend.practice$cost.thisdrug*as.numeric(spend.practice$saving)
 
@@ -48,7 +47,9 @@ spend_totals <- function(){
   temp.totals<-aggregate(temp.totals[,c("cost.alldrugs","items.alldrugs")],
                          by=list("Practice.code"=temp.totals$Practice.code),FUN=sum)
   spend.practice.totals<-merge(spend.practice.totals,temp.totals,all.x=TRUE)
-  spend.practice.totals$item.pct<-spend.practice.totals$items.thisdrug/spend.practice.totals$items.alldrugs
+
+  spend.practice.totals$item.pct<-spend.practice.totals$items.thisdrug /
+    spend.practice.totals$items.alldrugs
 
   return(spend.practice.totals)
 
@@ -67,16 +68,31 @@ scripset <- function(scrips, practices=NULL){
   return(myscrips)
 }
 
-#' Calculate Statin details by Practice.
-#'
-#' @return data.frame
-practice_mapping <- function(statins, months){
-  statins$item.bad <- FALSE
-  statins[statins$Drug %in% c("Atorvastatin","Rosuvastatin Calcium"),]$item.bad<-TRUE
+statinwittery <- function(statins){
+  statins[statins$Drug %in% c("Atorvastatin",
+                              "Rosuvastatin Calcium"),]$item.bad <- TRUE
+  return(statins)
+}
 
+#' Locate Sartans that are Bad
+sartanwittery <- function(sartans){
+  sartans[sartans$Drug == "Candesartan Cilexetil",]$item.bad <- TRUE
+  return(sartans)
+}
+
+#' Calculate Problem details by Practice.
+#'
+#' @param scrips data.frame of prescription details
+#' @param months number of months we're dealing with
+#' @param fun function to set $item.bad
+#' @return data.frame
+practice_mapping <- function(scrips, months, fun){
+  scrips$item.bad <- FALSE
+  scrips <- fun(scrips)
   practice.agg <- aggregate(
-                            statins$items.thisdrug,by=list(statins$item.bad,
-                                         statins$Practice.code),FUN=sum)
+                            scrips$items.thisdrug,by=list(scrips$item.bad,
+                                         scrips$Practice.code),FUN=sum)
+
   practice.agg <- cast(practice.agg,Group.2~Group.1)
   names(practice.agg) <- c("Practice.code","ok.drugs","problem.drugs")
   practice.agg$practice.problem <- practice.agg$problem.drugs/
@@ -88,7 +104,7 @@ practice_mapping <- function(statins, months){
   practice.agg$practice.problem <- round(practice.agg$practice.problem, 3)
 
   practice.agg <- subset(practice.agg, total.items.month > 0)
-  practice.details <- unique(statins[,c("Practice.code", "Practice.name", "Postcode")])
+  practice.details <- unique(scrips[,c("Practice.code", "Practice.name", "Postcode")])
   practice.located <- merge(practice.agg, practice.details, all.x=TRUE)
 
   return(practice.located)
