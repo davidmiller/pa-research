@@ -1,9 +1,78 @@
 ##
 ## Munging raw data for focus & clarity
 ##
+## This file is "interesting" inasmuch as it mixes two approaches
+## to dealing with NHS IC Prescription data.
+##
+## In the frist case, we have the approach based on the processing
+## code from the initial PrescriptionAnalytics.com code.
+##
+## In the later case, we also have a subsequent, more modular heuristic
+## aimed at a world where ad-hoc analysis of the data is likely to be
+## required on a semi-frequent basis, suitable to modularising the code
+## && designing for it's re-use based on the natural "foreign keys" into
+## external datasets-
+## * BNF Code
+## * Practice Code
+##
 require(gdata)
 
-setwd("/home/david/src/ohc/pa-research/data")
+#' Get BNF codes for a Pattern
+#'
+#' @param pattern
+#' @return data.frame of interesting bnf codes
+bnfgrep <- function(pattern){
+  drugs <- read.csv("T201109PDP IEXT.CSV", header=TRUE)
+  codename <- unique(drugs[,c("BNF.CODE", "BNF.NAME")])
+  names(codename) <- c("code", "name")
+  drug.list <- unique(codename$name)
+  interesting <- drug.list[grep(pattern,drug.list)]
+  interesting.codes <- subset(codename, name %in% interesting)
+  return(interesting.codes)
+}
+
+#' Get GP Addresses
+#'
+#' @param filename
+#' @return data.frame
+get_addresses <- function(filename="T201204ADD REXT.CSV"){
+  addresses <- read.csv(filename)
+  addresses <- addresses[,c(2,3,6,8)]
+  names(addresses) <- c("practice.code", "practice.name", "town", "postcode")
+  return(addresses)
+}
+
+#' Data for a set of BNF drugs
+#'
+#' @param codes vector of BNF codes we want
+#' @param infiles vector of filenames to read
+#' @return data.frameaddrs <- get_addresses()
+#' @examples
+#' codes <- c("1234", "4657")
+#' infiles <- c("frist.csv", next.csv")
+#' myset <- bnfset(codes, infiles)
+bnfset <- function(codes, infiles){
+  ## addrs <- get_addresses()
+
+  ## Load
+  file.name <- infiles[1]
+  print(file.name)
+  scrips <- read.csv(file.name, header=TRUE)
+
+  ## Clean
+  scrips$BNF.NAME <- trim(scrips$BNF.NAME)
+
+  ## Transform
+  cost <- aggregate(scrips[,c("ACT.COST", "ITEMS")],
+                    by=list(scrips$PRACTICE, scrips$PERIOD), FUN=sum)
+  names(cost) <- c("practice.code", "month", "cost.all", "items.all")
+
+  spend <- subset(scrips, BNF.CODE %in% codes)
+  spend <- aggregate(spend[,c("ACT.COST", "ITEMS")],
+                     by=list(spend$BNF.CODE, spend$PERIOD), FUN=sum)
+
+  return(NULL)
+}
 
 #' Interesting Drugs to analyse
 #'
@@ -69,7 +138,8 @@ scripclean <- function(interesting=NULL){
     print("Woke up")
 
     GP.drugs$BNF.NAME<-trim(GP.drugs$BNF.NAME)
-    surgery.subtotal<-aggregate(GP.drugs[,c("ACT.COST","ITEMS")],by=list(GP.drugs$PRACTICE,GP.drugs$PERIOD),FUN=sum)
+    surgery.subtotal<-aggregate(GP.drugs[,c("ACT.COST","ITEMS")],
+                                by=list(GP.drugs$PRACTICE,GP.drugs$PERIOD),FUN=sum)
     names(surgery.subtotal)<-c("Practice.code","Month","cost.alldrugs","items.alldrugs")
 
     t<-subset(GP.drugs,BNF.NAME %in% problem.drugs$Drug)
